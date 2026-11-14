@@ -79,11 +79,9 @@ static void draw_home(void) {
     iprintf("   [ PLAY ]       [ STOP ]\n");
     iprintf("\n");
     if (!sdReady)
-        iprintf("Errore: scheda SD non disponibile\n");
-    else if (playRequested)
-        iprintf("PLAY ricevuto: decoder da integrare\n");
+        iprintf("Errore: scheda SD non disponibile\\n");
     else
-        iprintf("Pronto. Riproduzione da integrare.\n");
+        iprintf("%.38s\\n", playerMessage);
     iprintf("\nVideo previsto sullo schermo superiore");
 }
 
