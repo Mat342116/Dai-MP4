@@ -36,3 +36,7 @@ DS-Homebrew's video-player comparison lists FastVideoDS as a separate format wit
 ## Converter consequence
 
 The future macOS Big Sur Intel converter should produce only the exact profile validated by Dai-MP4. An initial FFmpeg preset can target 256x192, 10 fps, Xvid-compatible MPEG-4 Part 2, AVI and MP3, but final bitrate/audio settings must be confirmed by hardware tests.
+
+## AVI probe implemented in Dai-MP4
+
+The project now has `source/avi.c` and `source/avi.h`. The PLAY touch area calls `avi_probe()`, which performs preliminary metadata checks: RIFF/AVI signature, `idx1` presence, first stream type, Xvid-family FourCC and 256x192 maximum dimensions (256 pixels wide, up to 192 high). It is deliberately a metadata probe, not a decoder. It does not yet validate frame rate, MP3 audio, all OpenDML variants, or decode a frame. Test it with real files and malformed AVI samples before relying on it.
