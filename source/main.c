@@ -1,5 +1,6 @@
 #include <nds.h>
 #include <fat.h>
+#include "avi.h"
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,6 +19,7 @@ static int firstVisible = 0;
 static bool browserOpen = false;
 static bool sdReady = false;
 static bool playRequested = false;
+static char playerMessage[96] = "Seleziona un AVI dalla scheda SD";
 
 static bool is_video_file(const char *name) {
     const char *dot = strrchr(name, '.');
@@ -195,9 +197,16 @@ int main(void) {
             /* PLAY and STOP occupy text row 9 on the lower screen. */
             if (touch.py >= 64 && touch.py < 80) {
                 if (touch.px >= 16 && touch.px < 112) {
-                    if (selectedFile >= 0) playRequested = true;
+                    if (selectedFile >= 0 && selectedFile < videoCount) {
+                        char path[NAME_LEN + 8];
+                        snprintf(path, sizeof(path), "fat:/%s", videoFiles[selectedFile]);
+                        playRequested = (avi_probe(path, playerMessage, sizeof(playerMessage)) == AVI_PROBE_OK);
+                    } else {
+                        snprintf(playerMessage, sizeof(playerMessage), "Prima seleziona un video");
+                    }
                 } else if (touch.px >= 144 && touch.px < 232) {
                     playRequested = false;
+                    snprintf(playerMessage, sizeof(playerMessage), "Riproduzione fermata");
                 }
                 draw_home();
             }
