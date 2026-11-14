@@ -1,68 +1,73 @@
-# Strumenti macOS Big Sur per Dai-MP4
+# Strumenti macOS Big Sur Intel per Dai-MP4
 
-Questa cartella contiene gli strumenti per preparare e compilare il progetto Nintendo DS/DSi dal Mac.
+Questa cartella prepara video AVI di test e verifica FFmpeg/FFprobe sul Mac Intel.
 
-## Importante: stato reale del progetto
+## Stato del progetto (da leggere)
 
-Dai-MP4 è ancora uno scaffold: l'interfaccia e la selezione dei file sono in sviluppo. Il decoder video e la riproduzione audio **non sono ancora implementati**. La conversione AVI qui sotto prepara un file di prova nel profilo sperimentale, ma non rende ancora possibile riprodurlo sulla console.
+Dai-MP4 è un prototipo homebrew Nintendo DS/DSi. L'interfaccia mostra la lista dei file AVI e il comando PLAY esegue soltanto un controllo preliminare dei metadati. **Non esiste ancora un decoder video/audio: il file convertito NON può essere riprodotto dal programma sulla console.** Questi strumenti permettono di preparare e controllare i campioni necessari allo sviluppo.
 
 ## Requisiti
 
-- macOS Big Sur 11.
-- Xcode Command Line Tools (xcode-select --install).
-- devkitPro con devkitARM, libnds e libfat.
-- FFmpeg (include ffprobe).
+- macOS Big Sur 11 su Mac Intel (x86_64).
+- Connessione Internet per installare gli strumenti.
+- Homebrew.
+- Per compilare il programma DSi: devkitPro con devkitARM, libnds e libfat.
 
-## 1. Installa gli strumenti
+## 1. Installa FFmpeg e FFprobe
 
-Esegui nel Terminale:
+Apri Terminale nella cartella del progetto ed esegui:
 
-~~~bash
-xcode-select --install
-~~~
+```bash
+chmod +x macos/*.sh
+./macos/install-deps.sh
+```
 
-Installa devkitPro seguendo la guida ufficiale: https://devkitpro.org/wiki/Getting_Started
+Se Homebrew manca, installalo dal sito ufficiale https://brew.sh/ e rilancia il comando. FFprobe viene installato insieme a FFmpeg.
 
-Nel setup devkitPro seleziona devkitARM e i pacchetti libnds e libfat. Poi configura le variabili DEVKITPRO e DEVKITARM come indicato dall'installer.
+Controlla l'installazione:
 
-Se Homebrew è già installato, FFmpeg si installa con:
+```bash
+./macos/check-ffmpeg.sh
+```
 
-~~~bash
-brew install ffmpeg
-~~~
+Il controllo verifica i percorsi di entrambi i programmi e l'encoder MP3. Se la build non offre `libxvid`, lo script di conversione usa l'encoder MPEG-4 Part 2 integrato di FFmpeg e imposta comunque il tag AVI `XVID`. Quindi l'assenza di `libxvid` non è di per sé un errore.
 
-Non scaricare ffprobe da endpoint API non documentati: FFmpeg installato con Homebrew include anche ffprobe.
+## 2. Converti un video di prova
 
-## 2. Compila Dai-MP4
+```bash
+./macos/convert-video.sh "/percorso/al/video.mp4"
+```
 
-Dalla cartella principale del repository:
+Puoi anche specificare il nome del file destinazione:
 
-~~~bash
-chmod +x macos/build.sh macos/convert-video.sh
+```bash
+./macos/convert-video.sh "/percorso/al/video.mp4" "/percorso/uscita/test.avi"
+```
+
+Profilo sperimentale: 256x192, 10 fps, MPEG-4 Part 2 con tag XVID, MP3 32 kHz stereo. L'immagine viene adattata senza deformarla.
+
+## 3. Compila il programma Nintendo DS/DSi
+
+Installa devkitPro seguendo https://devkitpro.org/wiki/Getting_Started e assicurati di avere devkitARM, libnds e libfat. Dopo aver configurato le variabili DEVKITPRO e DEVKITARM:
+
+```bash
 ./macos/build.sh
-~~~
+```
 
-Se la compilazione riesce, il file atteso è Dai-MP4.nds nella cartella principale.
+Il risultato atteso è `Dai-MP4.nds` nella cartella principale.
 
-## 3. Prepara un AVI di test
+## 4. Prova sulla console (solo test del prototipo)
 
-~~~bash
-./macos/convert-video.sh "video-originale.mp4"
-~~~
-
-Il risultato sarà video-originale-dsi-test.avi nella stessa cartella del video sorgente. Profilo sperimentale: 256x192, 10 fps, MPEG-4 Part 2/Xvid e MP3 a 32 kHz.
-
-Questo profilo è solo un obiettivo iniziale di compatibilità da testare su hardware. Non è una garanzia di riproduzione.
+Copia `Dai-MP4.nds` e un AVI convertito nella root della scheda SD. Avvia il file .nds con il tuo ambiente homebrew. Il browser dovrebbe mostrare il nome AVI; PLAY verifica alcuni metadati e mostra un messaggio di validazione. Non avvia la riproduzione.
 
 ## Diagnostica
 
-~~~bash
-uname -m
+Se qualcosa non funziona, copia qui l'output di:
+
+```bash
 sw_vers
+uname -m
 command -v ffmpeg
 command -v ffprobe
-echo "$DEVKITPRO"
-echo "$DEVKITARM"
-~~~
-
-Se il Mac restituisce x86_64, è Intel. Se restituisce arm64, è Apple Silicon. Il progetto documenta attualmente il futuro convertitore Big Sur Intel, ma la toolchain devkitPro va verificata sul Mac specifico.
+ffmpeg -hide_banner -encoders | grep -E 'libxvid|libmp3lame|mpeg4'
+```
