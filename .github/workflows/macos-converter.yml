@@ -1,0 +1,26 @@
+name: Build macOS Converter
+on:
+  push:
+    branches: [main, "feat/**"]
+    paths: ["macOS-Converter/**", ".github/workflows/macos-converter.yml"]
+  pull_request:
+    paths: ["macOS-Converter/**", ".github/workflows/macos-converter.yml"]
+  workflow_dispatch:
+jobs:
+  build-intel-big-sur:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build x86_64 app for macOS 11
+        run: |
+          cd macOS-Converter
+          chmod +x build.sh
+          ./build.sh
+      - name: Package app
+        run: |
+          cd macOS-Converter/build
+          ditto -c -k --sequesterRsrc --keepParent "Dai-MP4 Converter.app" "Dai-MP4-Converter-macOS-Big-Sur-Intel.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dai-MP4-Converter-macOS-Big-Sur-Intel
+          path: macOS-Converter/build/Dai-MP4-Converter-macOS-Big-Sur-Intel.zip
