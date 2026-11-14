@@ -1,27 +1,28 @@
 # Development roadmap
 
-## Phase 1 — reliable foundation
-- [x] Create the devkitPro/libnds project structure.
+## DSi playback engine
+- [x] Research established DSi video-player implementations.
+- [x] Select Rocket Video Player as a known working playback engine.
+- [x] Pin the MIT-licensed upstream source as a Git submodule and preserve its license/identity.
+- [x] Add a reproducible BlocksDS build script and GitHub Actions artifact workflow.
+- [ ] Confirm the CI build succeeds and inspect the generated NDS artifact.
+- [ ] Test launch, SD browsing, video and audio on a physical DSi/DSi XL.
+- [ ] Decide whether to keep the upstream player as a separately attributed application or develop a branded fork with full attribution and asset review.
+
+## macOS Big Sur Intel converter
+- [x] Create a native Cocoa x86_64 app shell and build script.
+- [ ] Replace the current AVI/Xvid output with a legally distributable .rvid conversion pipeline.
+- [ ] Verify output against Rocket Video Player using sample videos.
+- [ ] Add progress reporting, cancellation, error handling and SD export.
+- [ ] Test on a physical DSi.
+
+## Legacy AVI prototype
+- [x] Create devkitPro/libnds project structure.
 - [x] Add preliminary AVI metadata validation.
 - [x] Harden RIFF chunk bounds and select the first actual video stream even when audio appears first.
 - [x] Add host-side parser regression tests and GitHub Actions.
-- [ ] Build with devkitARM/libnds and fix any target-toolchain issues.
-- [ ] Validate SD-card access, navigation and touch coordinates on a real DSi/DSi XL.
+- [ ] Validate the parser and interface on hardware.
 
-## Phase 2 — playback
-- [ ] Replace the text mock-up with a touch-friendly graphical interface.
-- [ ] Complete a source-by-source decoder and dependency license review.
-- [ ] Select or implement a decoder that fits ARM9 CPU and memory limits.
-- [ ] Decode and display one frame on the upper screen.
-- [ ] Add frame pacing and robust PLAY/STOP/error states.
-- [ ] Benchmark supported video profiles on physical DSi hardware.
-- [ ] Add audio only after stable video playback.
+## Format and licensing constraints
 
-## Phase 3 — Mac converter
-- [ ] Build a separate macOS 11 Big Sur Intel (x86_64) converter.
-- [ ] Transcode common input formats to the exact profile proven on DSi.
-- [ ] Add optional SD-card export and conversion validation.
-
-## Format constraints
-
-MP4 is a container, not a codec. The initial research target is indexed AVI with Xvid/MPEG-4 Part 2, 256x192 maximum dimensions and a 10 fps starting target. This is not a playback guarantee. Do not promise arbitrary MP4 support or finalize converter settings before hardware benchmarks.
+MP4 is a container, not a codec. The selected DSi player uses `.rvid`, a distinct format. The separate Vid2RVID repository currently has no declared license, so its source must not be copied or redistributed without permission. The current Mac converter's AVI output is for a different player and must not be described as compatible with Rocket Video Player.
