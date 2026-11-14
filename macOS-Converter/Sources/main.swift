@@ -1,6 +1,7 @@
 import Cocoa
 final class ConverterApp: NSObject, NSApplicationDelegate {
  var window:NSWindow!, input:NSTextField!, output:NSTextField!, status:NSTextField!, log:NSTextView!, convertButton:NSButton!
+ var process:Process?
  func applicationDidFinishLaunching(_ n:Notification){ buildUI() }
  func applicationShouldTerminateAfterLastWindowClosed(_ s:NSApplication)->Bool{true}
  func field(_ s:String)->NSTextField{let f=NSTextField(string:s);f.isEditable=false;f.isSelectable=true;f.lineBreakMode = .byTruncatingMiddle;f.font = .systemFont(ofSize:11);return f}
@@ -27,13 +28,14 @@ final class ConverterApp: NSObject, NSApplicationDelegate {
   let src=input.stringValue,dst=output.stringValue
   guard !src.isEmpty,FileManager.default.fileExists(atPath:src) else{alert("Seleziona un video valido.");return}
   guard !dst.isEmpty,dst != "Scegli dove salvare il file AVI" else{alert("Scegli la destinazione AVI.");return}
+  guard URL(fileURLWithPath:src).standardizedFileURL != URL(fileURLWithPath:dst).standardizedFileURL else{alert("Il file di destinazione deve essere diverso dal video originale.");return}
   guard let ff=findFFmpeg() else{alert("FFmpeg non trovato. Installalo e riapri l'app; consulta il README.");return}
   convertButton.isEnabled=false;status.stringValue="Conversione in corso…";append("Avvio: \((src as NSString).lastPathComponent)")
-  let task=Process();task.executableURL=URL(fileURLWithPath:ff)
+  let task=Process();process=task;task.executableURL=URL(fileURLWithPath:ff)
   task.arguments=["-hide_banner","-y","-i",src,"-map","0:v:0","-map","0:a:0?","-vf","scale=256:192:force_original_aspect_ratio=decrease,pad=256:192:(ow-iw)/2:(oh-ih)/2,fps=10,format=yuv420p","-c:v","mpeg4","-vtag","XVID","-b:v","192k","-maxrate","256k","-bufsize","512k","-c:a","libmp3lame","-ar","32000","-b:a","96k","-ac","2","-f","avi",dst]
   let pipe=Pipe();task.standardError=pipe;task.standardOutput=pipe
   task.terminationHandler={[weak self] p in DispatchQueue.main.async{guard let self=self else{return};self.convertButton.isEnabled=true;self.status.stringValue=p.terminationStatus==0 ? "Conversione completata":"Conversione non riuscita";self.append(p.terminationStatus==0 ? "Creato: \(dst)":"FFmpeg terminato con codice \(p.terminationStatus).")}}
-  do{try task.run();pipe.fileHandleForReading.readabilityHandler={[weak self] h in let d=h.availableData;if !d.isEmpty,let t=String(data:d,encoding:.utf8){DispatchQueue.main.async{self?.append(t)}}}}catch{convertButton.isEnabled=true;status.stringValue="Errore";append(error.localizedDescription)}
+  do{try task.run();pipe.fileHandleForReading.readabilityHandler={[weak self] h in let d=h.availableData;if !d.isEmpty,let t=String(data:d,encoding:.utf8){DispatchQueue.main.async{self?.append(t)}}}}catch{process=nil;convertButton.isEnabled=true;status.stringValue="Errore";append(error.localizedDescription)}
  }
  func findFFmpeg()->String?{["/usr/local/bin/ffmpeg","/opt/homebrew/bin/ffmpeg","/opt/local/bin/ffmpeg"].first{FileManager.default.isExecutableFile(atPath:$0)}}
  func append(_ s:String){log.textStorage?.append(NSAttributedString(string:s.hasSuffix("\n") ? s:s+"\n"));log.scrollToEndOfDocument(nil)}
