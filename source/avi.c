@@ -1,187 +1,116 @@
 #include "avi.h"
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
 #define MAX_RIFF_SIZE 0x7fffffffUL
-
-typedef struct {
-    int found;
-    int is_video;
-    uint32_t width;
-    uint32_t height;
-    char handler[5];
-    char compression[5];
-} AviStreamInfo;
+typedef struct { int found; uint32_t width, height; char handler[5], compression[5]; } AviStreamInfo;
 
 static uint32_t le32(const unsigned char *p) {
-    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
-           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+    return (uint32_t)p[0] | ((uint32_t)p[1]<<8) | ((uint32_t)p[2]<<16) | ((uint32_t)p[3]<<24);
 }
+static int read_exact(FILE *f, void *p, size_t n) { return fread(p,1,n,f)==n; }
+static int seek_to(FILE *f, uint32_t p) { return p<=MAX_RIFF_SIZE && fseek(f,(long)p,SEEK_SET)==0; }
 
-static uint16_t le16(const unsigned char *p) {
-    return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+/* Validate the complete chunk, including its even-byte padding, before use. */
+static int chunk_at(FILE *f, uint32_t pos, uint32_t end, unsigned char h[8],
+                    uint32_t *data, uint32_t *next) {
+    uint64_t d, n;
+    if ((uint64_t)pos+8U>end || !seek_to(f,pos) || !read_exact(f,h,8)) return 0;
+    d=(uint64_t)pos+8U;
+    n=d+(uint64_t)le32(h+4)+(le32(h+4)&1U);
+    if(n>end || n>MAX_RIFF_SIZE) return 0;
+    *data=(uint32_t)d; *next=(uint32_t)n; return 1;
 }
-
-static int read_exact(FILE *fp, void *dst, size_t size) {
-    return fread(dst, 1, size, fp) == size;
+static int codec_ok(const char *a,const char *b) {
+    static const char *ids[]={"XVID","DIVX","DX50","MP4V"};
+    unsigned i; for(i=0;i<4;i++) if(!memcmp(a,ids[i],4)||!memcmp(b,ids[i],4)) return 1;
+    return 0;
 }
-
-static int seek_to(FILE *fp, uint32_t offset) {
-    return offset <= MAX_RIFF_SIZE && fseek(fp, (long)offset, SEEK_SET) == 0;
-}
-
-static int codec_supported(const char *handler, const char *compression) {
-    return !memcmp(handler, "XVID", 4) ||
-           !memcmp(handler, "DIVX", 4) ||
-           !memcmp(handler, "DX50", 4) ||
-           !memcmp(handler, "MP4V", 4) ||
-           !memcmp(compression, "XVID", 4) ||
-           !memcmp(compression, "DIVX", 4) ||
-           !memcmp(compression, "DX50", 4) ||
-           !memcmp(compression, "MP4V", 4);
-}
-
-static int parse_stream_list(FILE *fp, uint32_t start, uint32_t end,
-                             AviStreamInfo *info) {
-    unsigned char hdr[8];
-    unsigned char strh[56];
-    unsigned char strf[40];
-    uint32_t pos = start;
-
-    memset(info, 0, sizeof(*info));
-    while (pos + 8 <= end) {
-        uint32_t size, data, next;
-        if (!seek_to(fp, pos) || !read_exact(fp, hdr, 8)) return 0;
-        size = le32(hdr + 4);
-        data = pos + 8;
-        next = data + size + (size & 1U);
-        if (next < data || next > end) return 0;
-
-        if (!memcmp(hdr, "strh", 4) && size >= sizeof(strh)) {
-            if (!seek_to(fp, data) || !read_exact(fp, strh, sizeof(strh)))
-                return 0;
-            info->is_video = !memcmp(strh, "vids", 4);
-            memcpy(info->handler, strh + 4, 4);
-            info->handler[4] = '\0';
-        } else if (!memcmp(hdr, "strf", 4) && size >= sizeof(strf)) {
-            if (!seek_to(fp, data) || !read_exact(fp, strf, sizeof(strf)))
-                return 0;
-            info->width = le32(strf + 4);
-            info->height = le32(strf + 8);
-            memcpy(info->compression, strf + 16, 4);
-            info->compression[4] = '\0';
+static int parse_strl(FILE *f,uint32_t start,uint32_t end,AviStreamInfo *out) {
+    unsigned char h[8],sh[56],sf[40]; uint32_t p=start,d,n; int video=0,format=0;
+    memset(out,0,sizeof(*out));
+    while(p<end) {
+        uint32_t size;
+        if(!chunk_at(f,p,end,h,&d,&n)) return 0;
+        size=le32(h+4);
+        if(!memcmp(h,"strh",4)&&size>=sizeof(sh)) {
+            if(!seek_to(f,d)||!read_exact(f,sh,sizeof(sh))) return 0;
+            video=!memcmp(sh,"vids",4); memcpy(out->handler,sh+4,4); out->handler[4]=0;
+        } else if(!memcmp(h,"strf",4)&&size>=sizeof(sf)) {
+            if(!seek_to(f,d)||!read_exact(f,sf,sizeof(sf))) return 0;
+            out->width=le32(sf+4); out->height=le32(sf+8);
+            memcpy(out->compression,sf+16,4); out->compression[4]=0; format=1;
         }
-        pos = next;
+        p=n;
     }
-    info->found = info->is_video;
-    return 1;
+    out->found=video&&format; return 1;
 }
-
-static int parse_hdrl(FILE *fp, uint32_t start, uint32_t end,
-                      AviStreamInfo *first_stream, int *stream_count) {
-    unsigned char hdr[8], list_type[4];
-    uint32_t pos = start;
-
-    *stream_count = 0;
-    memset(first_stream, 0, sizeof(*first_stream));
-    while (pos + 8 <= end) {
-        uint32_t size, data, next;
-        if (!seek_to(fp, pos) || !read_exact(fp, hdr, 8)) return 0;
-        size = le32(hdr + 4);
-        data = pos + 8;
-        next = data + size + (size & 1U);
-        if (next < data || next > end) return 0;
-
-        if (!memcmp(hdr, "LIST", 4) && size >= 4) {
-            if (!seek_to(fp, data) || !read_exact(fp, list_type, 4))
-                return 0;
-            if (!memcmp(list_type, "strl", 4)) {
-                AviStreamInfo current;
-                if (!parse_stream_list(fp, data + 4, data + size, &current))
-                    return 0;
-                if (*stream_count == 0) *first_stream = current;
-                (*stream_count)++;
+static int parse_hdrl(FILE *f,uint32_t start,uint32_t end,AviStreamInfo *video,int *count) {
+    unsigned char h[8],type[4]; uint32_t p=start,d,n; *count=0; memset(video,0,sizeof(*video));
+    while(p<end) {
+        uint32_t size;
+        if(!chunk_at(f,p,end,h,&d,&n)) return 0;
+        size=le32(h+4);
+        if(!memcmp(h,"LIST",4)&&size>=4) {
+            if(!seek_to(f,d)||!read_exact(f,type,4)) return 0;
+            if(!memcmp(type,"strl",4)) {
+                AviStreamInfo cur;
+                if(!parse_strl(f,d+4,d+size,&cur)) return 0;
+                ++*count;
+                /* Audio streams can precede video in AVI headers. */
+                if(!video->found&&cur.found) *video=cur;
             }
         }
-        pos = next;
+        p=n;
     }
     return 1;
 }
-
-AviProbeResult avi_probe(const char *path, char *message, size_t message_size) {
-    FILE *fp;
-    unsigned char riff[12], hdr[8], list_type[4];
-    uint32_t riff_end, pos;
-    int have_hdrl = 0, have_index = 0, stream_count = 0;
-    AviStreamInfo first_stream;
-
-    if (message && message_size) message[0] = '\0';
-    fp = fopen(path, "rb");
-    if (!fp) {
-        if (message && message_size) snprintf(message, message_size, "Impossibile aprire il file");
-        return AVI_PROBE_OPEN_FAILED;
+AviProbeResult avi_probe(const char *path,char *msg,size_t cap) {
+    FILE *f; unsigned char riff[12],h[8],type[4]; uint32_t end,p,d,n;
+    long length; int hdrl=0,index=0,count=0; AviStreamInfo video;
+    if(msg&&cap) msg[0]=0;
+    f=fopen(path,"rb");
+    if(!f) { if(msg&&cap) snprintf(msg,cap,"Impossibile aprire il file"); return AVI_PROBE_OPEN_FAILED; }
+    if(fseek(f,0,SEEK_END)|| (length=ftell(f))<12 || length>(long)MAX_RIFF_SIZE ||
+       fseek(f,0,SEEK_SET)||!read_exact(f,riff,12)||memcmp(riff,"RIFF",4)||memcmp(riff+8,"AVI ",4)) {
+        fclose(f); if(msg&&cap) snprintf(msg,cap,"Non e un AVI valido o leggibile"); return AVI_PROBE_BAD_CONTAINER;
     }
-
-    if (!read_exact(fp, riff, sizeof(riff)) ||
-        memcmp(riff, "RIFF", 4) || memcmp(riff + 8, "AVI ", 4)) {
-        fclose(fp);
-        if (message && message_size) snprintf(message, message_size, "Non e un AVI valido");
-        return AVI_PROBE_BAD_CONTAINER;
+    {
+        uint64_t e=(uint64_t)le32(riff+4)+8U;
+        if(e<12U||e>(uint64_t)length||e>MAX_RIFF_SIZE) {
+            fclose(f); if(msg&&cap) snprintf(msg,cap,"Dimensione AVI non valida o file troncato"); return AVI_PROBE_BAD_CONTAINER;
+        }
+        end=(uint32_t)e;
     }
-
-    riff_end = le32(riff + 4) + 8;
-    if (riff_end < 12 || riff_end > MAX_RIFF_SIZE) {
-        fclose(fp);
-        if (message && message_size) snprintf(message, message_size, "Dimensione AVI non valida");
-        return AVI_PROBE_BAD_CONTAINER;
-    }
-
-    pos = 12;
-    while (pos + 8 <= riff_end) {
-        uint32_t size, data, next;
-        if (!seek_to(fp, pos) || !read_exact(fp, hdr, 8)) break;
-        size = le32(hdr + 4);
-        data = pos + 8;
-        next = data + size + (size & 1U);
-        if (next < data || next > riff_end) break;
-
-        if (!memcmp(hdr, "idx1", 4)) have_index = 1;
-        if (!memcmp(hdr, "LIST", 4) && size >= 4) {
-            if (!seek_to(fp, data) || !read_exact(fp, list_type, 4)) break;
-            if (!memcmp(list_type, "hdrl", 4)) {
-                have_hdrl = parse_hdrl(fp, data + 4, data + size,
-                                       &first_stream, &stream_count);
-                if (!have_hdrl) break;
+    p=12;
+    while(p<end) {
+        uint32_t size;
+        if(!chunk_at(f,p,end,h,&d,&n)) {
+            fclose(f); if(msg&&cap) snprintf(msg,cap,"Struttura RIFF/AVI danneggiata"); return AVI_PROBE_BAD_CONTAINER;
+        }
+        size=le32(h+4);
+        if(!memcmp(h,"idx1",4)&&size>=16U) index=1;
+        if(!memcmp(h,"LIST",4)&&size>=4U) {
+            if(!seek_to(f,d)||!read_exact(f,type,4)) {
+                fclose(f); if(msg&&cap) snprintf(msg,cap,"LIST AVI incompleta"); return AVI_PROBE_BAD_CONTAINER;
+            }
+            if(!memcmp(type,"hdrl",4)) {
+                if(!parse_hdrl(f,d+4,d+size,&video,&count)) {
+                    fclose(f); if(msg&&cap) snprintf(msg,cap,"Header AVI danneggiato"); return AVI_PROBE_BAD_CONTAINER;
+                }
+                hdrl=1;
             }
         }
-        pos = next;
+        p=n;
     }
-    fclose(fp);
-
-    if (!have_hdrl || stream_count == 0 || !first_stream.found) {
-        if (message && message_size) snprintf(message, message_size, "Traccia video non trovata o non prima");
-        return AVI_PROBE_UNSUPPORTED_VIDEO;
+    fclose(f);
+    if(!hdrl||!count||!video.found) { if(msg&&cap) snprintf(msg,cap,"Traccia video non trovata"); return AVI_PROBE_UNSUPPORTED_VIDEO; }
+    if(!index) { if(msg&&cap) snprintf(msg,cap,"AVI senza indice idx1 valido"); return AVI_PROBE_NO_INDEX; }
+    if(!codec_ok(video.handler,video.compression)) { if(msg&&cap) snprintf(msg,cap,"Codec video non supportato"); return AVI_PROBE_UNSUPPORTED_VIDEO; }
+    if(video.width!=256U||!video.height||video.height>192U) {
+        if(msg&&cap) snprintf(msg,cap,"Serve video largo 256 e alto massimo 192"); return AVI_PROBE_BAD_DIMENSIONS;
     }
-    if (!have_index) {
-        if (message && message_size) snprintf(message, message_size, "AVI senza indice idx1");
-        return AVI_PROBE_NO_INDEX;
-    }
-    if (!codec_supported(first_stream.handler, first_stream.compression)) {
-        if (message && message_size) snprintf(message, message_size, "Codec video non supportato");
-        return AVI_PROBE_UNSUPPORTED_VIDEO;
-    }
-
-    if (first_stream.width != 256 || first_stream.height == 0 ||
-        first_stream.height > 192) {
-        if (message && message_size) snprintf(message, message_size, "Serve video 256x massimo 192");
-        return AVI_PROBE_BAD_DIMENSIONS;
-    }
-
-    if (message && message_size)
-        snprintf(message, message_size, "AVI compatibile: %lux%lu (decoder da integrare)",
-                 (unsigned long)first_stream.width,
-                 (unsigned long)first_stream.height);
+    if(msg&&cap) snprintf(msg,cap,"AVI compatibile: %lux%lu (solo metadati)",(unsigned long)video.width,(unsigned long)video.height);
     return AVI_PROBE_OK;
 }
