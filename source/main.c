@@ -106,7 +106,7 @@ static void draw_browser(void) {
                     videoFiles[index]);
         }
         iprintf("\n");
-        iprintf("A/B o frecce: naviga  ");
+        iprintf("A: conferma / frecce: naviga  ");
         iprintf("%d/%d\n", selectedFile + 1, videoCount);
     }
     iprintf("\nSTART: torna al lettore");
@@ -119,6 +119,7 @@ static void move_selection(int delta) {
         selectedFile = 0;
     else
         selectedFile += delta;
+    playRequested = false;
 
     if (selectedFile < 0) selectedFile = 0;
     if (selectedFile >= videoCount) selectedFile = videoCount - 1;
@@ -183,6 +184,7 @@ int main(void) {
                 int index = firstVisible + row;
                 if (row >= 0 && row < VISIBLE_ROWS && index < videoCount) {
                     selectedFile = index;
+                    playRequested = false;
                     browserOpen = false;
                     draw_home();
                 }
