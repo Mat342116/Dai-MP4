@@ -18,7 +18,6 @@ static int selectedFile = -1;
 static int firstVisible = 0;
 static bool browserOpen = false;
 static bool sdReady = false;
-static bool playRequested = false;
 static char playerMessage[96] = "Seleziona un AVI dalla scheda SD";
 
 static bool is_video_file(const char *name) {
@@ -81,7 +80,7 @@ static void draw_home(void) {
     if (!sdReady)
         iprintf("Errore: scheda SD non disponibile\n");
     else
-        iprintf("%.38s\\n", playerMessage);
+        iprintf("%.38s\n", playerMessage);
     iprintf("\nVideo previsto sullo schermo superiore");
 }
 
@@ -119,7 +118,6 @@ static void move_selection(int delta) {
         selectedFile = 0;
     else
         selectedFile += delta;
-    playRequested = false;
 
     if (selectedFile < 0) selectedFile = 0;
     if (selectedFile >= videoCount) selectedFile = videoCount - 1;
@@ -184,7 +182,6 @@ int main(void) {
                 int index = firstVisible + row;
                 if (row >= 0 && row < VISIBLE_ROWS && index < videoCount) {
                     selectedFile = index;
-                    playRequested = false;
                     browserOpen = false;
                     draw_home();
                 }
@@ -198,12 +195,12 @@ int main(void) {
                     if (selectedFile >= 0 && selectedFile < videoCount) {
                         char path[NAME_LEN + 8];
                         snprintf(path, sizeof(path), "fat:/%s", videoFiles[selectedFile]);
-                        playRequested = (avi_probe(path, playerMessage, sizeof(playerMessage)) == AVI_PROBE_OK);
+                        if (avi_probe(path, playerMessage, sizeof(playerMessage)) == AVI_PROBE_OK)
+                            snprintf(playerMessage, sizeof(playerMessage), "AVI valido; decoder da integrare");
                     } else {
                         snprintf(playerMessage, sizeof(playerMessage), "Prima seleziona un video");
                     }
                 } else if (touch.px >= 144 && touch.px < 232) {
-                    playRequested = false;
                     snprintf(playerMessage, sizeof(playerMessage), "Riproduzione fermata");
                 }
                 draw_home();
