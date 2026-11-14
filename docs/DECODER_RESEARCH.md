@@ -50,3 +50,13 @@ The companion converter is Vid2RVID: https://github.com/RocketRobz/Vid2RVID. Its
 **Current direction:** keep the AVI work as a validation prototype, but evaluate basing the DSi player on the MIT-licensed Rocket Video Player rather than reimplementing Xvid/MP3 decoding. Before adopting it, verify the exact upstream source revision, preserve its license and notices, understand the build/toolchain requirements, and make sure the project owner is comfortable changing Dai-MP4's target file format from `.avi` to `.rvid`.
 
 Sources: DS-Homebrew's maintained comparison lists working `.rvid`, `.avi`/Xvid, `.dpg` and `.fv` players; Rocket Video Player's upstream README declares MIT and describes its capabilities. See https://wiki.ds-homebrew.com/ds-index/videoplayers and https://github.com/RocketRobz/RocketVideoPlayer.
+
+## Implemented integration and independent RVID writer
+
+The repository now pins Rocket Video Player at upstream commit `50803b9027ca43ab278c1486442fcfc70c90b309` as a Git submodule. Its upstream LICENSE is MIT. The build script and CI workflow build the upstream NDS player without changing its name or claiming its code as Dai-MP4 code.
+
+The macOS converter has been changed to write RVID v5 using the public header layout in `common/rvidHeader.h` and the playback reader's uncompressed RGB565 and planar PCM paths. It writes 256x192 RGB565 frames at 15 fps, then left and right 16-bit PCM streams at 32 kHz. The format writer is independent; no Vid2RVID source is copied. This implementation still needs a successful macOS CI build, generated-file validation, and real DSi playback tests.
+
+The uncompressed 16-bit profile is intentionally simple but produces large files (about 1.6 MB/s with audio). The converter refuses output files at or above 3.9 GB to stay below the FAT32 single-file limit.
+
+The companion Vid2RVID repository currently has no declared license. Its code must not be copied or redistributed without permission.
