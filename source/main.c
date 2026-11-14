@@ -79,7 +79,7 @@ static void draw_home(void) {
     iprintf("   [ PLAY ]       [ STOP ]\n");
     iprintf("\n");
     if (!sdReady)
-        iprintf("Errore: scheda SD non disponibile\\n");
+        iprintf("Errore: scheda SD non disponibile\n");
     else
         iprintf("%.38s\\n", playerMessage);
     iprintf("\nVideo previsto sullo schermo superiore");
