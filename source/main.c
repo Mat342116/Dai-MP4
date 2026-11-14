@@ -33,8 +33,8 @@ static void scan_sd_root(void) {
     struct dirent *entry;
 
     videoCount = 0;
-    selectedFile = -1;
-    firstVisible = 0;
+    if (selectedFile >= MAX_FILES) selectedFile = -1;
+    firstVisible = selectedFile >= VISIBLE_ROWS ? selectedFile - VISIBLE_ROWS + 1 : 0;
 
     dir = opendir("fat:/");
     if (!dir) return;
@@ -191,7 +191,7 @@ int main(void) {
             touchPosition touch;
             touchRead(&touch);
             /* PLAY and STOP occupy text row 9 on the lower screen. */
-            if (touch.py >= 72 && touch.py < 88) {
+            if (touch.py >= 64 && touch.py < 80) {
                 if (touch.px >= 16 && touch.px < 112) {
                     if (selectedFile >= 0) playRequested = true;
                 } else if (touch.px >= 144 && touch.px < 232) {
