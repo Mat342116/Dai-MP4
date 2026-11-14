@@ -1,43 +1,49 @@
 # Dai-MP4
 
-Nintendo DSi homebrew video-player project.
+Nintendo DSi video-player project with a separately maintained macOS converter prototype.
 
-## Project status
+## Working DSi playback engine
 
-This repository is an early player prototype, **not yet a working video player**. The current application provides a dual-screen text interface, SD-card root browsing and preliminary AVI metadata validation. It does not decode or play video or audio.
+This repository now pins [Rocket Video Player](https://github.com/RocketRobz/RocketVideoPlayer) as a Git submodule at a fixed upstream revision. Rocket Video Player is an existing DSi video player released under the MIT License; its license and upstream identity are retained. It supports the Rocket Video `.rvid` format, not ordinary MP4 or AVI files.
 
-MP4 is a container, not a codec. The first research target is indexed AVI with Xvid/MPEG-4 Part 2 video, 256 pixels wide by at most 192 high. Frame rate, bitrate and audio compatibility still need to be validated on real DSi hardware. Arbitrary MP4 playback is not supported.
+The upstream player supports 8-bit and 16-bit video, dual-screen playback and stereo audio up to 32 kHz. Actual performance depends on the video and the DSi model. See the [DS-Homebrew video-player comparison](https://wiki.ds-homebrew.com/ds-index/videoplayers).
 
-## Build on Nintendo DS/DSi
+### Get the player
 
-Install devkitPro with devkitARM, libnds and libfat, configure `DEVKITPRO` and `DEVKITARM`, then run:
+Clone this repository including submodules:
 
 ```sh
-make
+git clone --recurse-submodules https://github.com/Mat342116/Dai-MP4.git
+cd Dai-MP4
 ```
 
-The intended output is `Dai-MP4.nds`.
+If you already cloned it without submodules:
 
-## Host-side parser tests
+```sh
+git submodule update --init --recursive
+```
 
-The AVI metadata parser can be tested without devkitPro:
+The CI build uses BlocksDS and creates an artifact named `RocketVideoPlayer.nds`. Build locally on Linux with Wonderful Toolchain and BlocksDS installed:
+
+```sh
+source /opt/wonderful/bin/wf-env -a
+./scripts/build-dsi-player.sh
+```
+
+Copy `dist/RocketVideoPlayer.nds` to the SD card and launch it using your usual DSi homebrew method. Put converted `.rvid` files on the SD card for the player to browse.
+
+## Converter status — important
+
+The separate `macOS-Converter/` app currently creates an AVI/Xvid candidate for the older Tuna-viDS player. **It does not create .rvid files and is not compatible with the Rocket Video Player integration above.** Do not use its AVI output expecting it to play in Rocket Video Player.
+
+The upstream companion tool [Vid2RVID](https://github.com/RocketRobz/Vid2RVID) is the intended .rvid converter, but its repository currently declares no license. This project does not copy or redistribute its source. A native macOS Big Sur Intel converter that outputs .rvid remains unfinished until a compatible implementation can be legally used or written and tested.
+
+## Legacy Dai-MP4 AVI prototype
+
+The original `source/main.c` application and AVI metadata parser remain in the repository as an experimental prototype. They are not the integrated video decoder. The host parser tests can be run with:
 
 ```sh
 make -f tests/Makefile
 ```
 
-GitHub Actions runs the same host test suite for pushes and pull requests.
-
-## Current limitations
-
-- AVI validation checks RIFF chunk bounds, the AVI header, an `idx1` index, a video stream, Xvid-family FourCC and conservative frame dimensions. It is a metadata check, not a decoder.
-- OpenDML AVI, arbitrary codecs, frame-rate/bitrate limits and audio decoding are not implemented.
-- The DSi interface is still text-based; physical touch, SD-card and performance testing remain necessary.
-- Decoder integration requires a source-by-source license review before code is reused.
-- The planned macOS Big Sur Intel converter is a later phase and must target a format proven to work on hardware.
-
-See [decoder research](docs/DECODER_RESEARCH.md) and the [roadmap](docs/ROADMAP.md).
-
-## macOS converter
-
-A separate Intel macOS Big Sur converter app is under [`macOS-Converter/`](macOS-Converter/README.md). It produces an Xvid AVI candidate; it does not replace the still-missing DSi decoder.
+See [decoder research](docs/DECODER_RESEARCH.md), [roadmap](docs/ROADMAP.md), and [the upstream MIT license](vendor/README.md).
