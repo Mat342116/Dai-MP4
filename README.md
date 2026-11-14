@@ -1,22 +1,59 @@
 # Dai-MP4
 
-Original Nintendo DSi homebrew video-player project.
+Nintendo DSi video-player project with a separate macOS Big Sur Intel converter.
 
-## Planned behavior
-- Top screen: video playback.
-- Bottom screen: touch controls and file browser.
-- Physical START: open the SD-card file browser.
-- Touch PLAY and STOP to control the selected video.
-- Future companion: macOS Big Sur Intel (x86_64) video converter.
+## DSi video player
 
-## Technical status
-This is an early development scaffold, not a working MP4 player yet. MP4 is a container, not a codec, and arbitrary MP4 files cannot be assumed to decode on DSi hardware. The first format being evaluated is indexed AVI with Xvid/MPEG-4 Part 2 video, at a conservative 256x192 and 10 fps profile, with MP3 audio. This is a research target based on the existing Tuna-viDS player, not yet an implemented decoder or a guarantee of playback. See [decoder research](docs/DECODER_RESEARCH.md). Only after hardware tests will the Mac converter target the exact supported profile.
+The repository pins [Rocket Video Player](https://github.com/RocketRobz/RocketVideoPlayer) as a Git submodule at a fixed upstream revision. It is an established DSi player released under the MIT License; its original name, credits and license are retained. It plays Rocket Video `.rvid` files, not ordinary MP4 or AVI files.
 
-## Build
-Install devkitPro with devkitARM, libnds and libfat, then run `make`. Intended output: `Dai-MP4.nds`.
+The upstream player supports 8-bit and 16-bit video, dual-screen playback and stereo audio up to 32 kHz. Actual performance depends on the content and console. See the [DS-Homebrew video-player comparison](https://wiki.ds-homebrew.com/ds-index/videoplayers).
 
-## Current status
-Dual-screen UI/input and SD file-browser foundation are planned. Video decoding/rendering and audio playback are not implemented yet.
-## Current AVI validation prototype
+### Build and install
 
-The PLAY touch area now probes the selected root-level AVI before reporting its status. The metadata check looks for an AVI RIFF container, an `idx1` index, a first video stream, an Xvid-family FourCC, and a 256-pixel-wide frame no taller than 192 pixels. It does **not** decode or play the video, and it does not yet validate frame rate, audio codec, or every AVI variant. A successful check currently means only that the file passes these preliminary checks.
+Clone this repository including submodules:
+
+```sh
+git clone --recurse-submodules https://github.com/Mat342116/Dai-MP4.git
+cd Dai-MP4
+```
+
+If already cloned:
+
+```sh
+git submodule update --init --recursive
+```
+
+With Wonderful Toolchain and BlocksDS installed on Linux:
+
+```sh
+source /opt/wonderful/bin/wf-env -a
+./scripts/build-dsi-player.sh
+```
+
+The generated file is `dist/RocketVideoPlayer.nds`. GitHub Actions also builds it and publishes it as an artifact. Copy the NDS file and converted `.rvid` videos to the DSi SD card and launch the player using your usual homebrew method.
+
+## macOS Big Sur Intel converter
+
+A separate native Cocoa application is in `macOS-Converter/`. It now targets the Rocket Video `.rvid` format using a clean implementation of the public version-5 header layout and uncompressed RGB565 frames, plus planar 16-bit PCM audio.
+
+Build on an Intel Mac with Xcode Command Line Tools and FFmpeg installed:
+
+```sh
+cd macOS-Converter
+./build.sh
+open 'build/Dai-MP4 Converter.app'
+```
+
+The converter creates 256×192 RGB565 video at 15 fps and stereo PCM audio at 32 kHz. This uncompressed profile produces large files (roughly 1.6 MB/s with audio); the app refuses outputs above a conservative FAT32 file-size limit. FFmpeg and ffprobe must be installed separately.
+
+**Compatibility status:** the .rvid writer is implemented from the public format declaration and player reader, but its output has not yet been validated on a physical DSi. Treat the converter as a test build until the GitHub macOS build passes and a generated sample is played successfully.
+
+## Legacy AVI prototype
+
+The original `source/main.c` application and AVI metadata parser remain as an experimental prototype, not the active playback engine. Host parser tests can be run with:
+
+```sh
+make -f tests/Makefile
+```
+
+See [decoder research](docs/DECODER_RESEARCH.md), [roadmap](docs/ROADMAP.md), and [upstream licensing details](vendor/README.md).

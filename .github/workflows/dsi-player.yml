@@ -1,0 +1,47 @@
+name: Build Nintendo DSi video player
+on:
+  push:
+    branches: [main, "feat/**"]
+    paths:
+      - ".gitmodules"
+      - "vendor/**"
+      - "scripts/build-dsi-player.sh"
+      - ".github/workflows/dsi-player.yml"
+  pull_request:
+    paths:
+      - ".gitmodules"
+      - "vendor/**"
+      - "scripts/build-dsi-player.sh"
+      - ".github/workflows/dsi-player.yml"
+  workflow_dispatch:
+jobs:
+  build-dsi:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential curl git python3
+      - name: Install Wonderful Toolchain and BlocksDS
+        shell: bash
+        run: |
+          sudo mkdir -p /opt/wonderful
+          sudo chown "$USER":"$USER" /opt/wonderful
+          curl -fL https://wonderful.asie.pl/bootstrap/wf-bootstrap-x86_64.tar.gz | tar -xz -C /opt/wonderful
+          export PATH="/opt/wonderful/bin:$PATH"
+          wf-pacman -Syu --noconfirm wf-tools
+          wf-config repo enable blocksds
+          wf-pacman -Syu --noconfirm
+          wf-pacman -S --noconfirm blocksds-toolchain
+          sudo ln -s /opt/wonderful/thirdparty/blocksds /opt/blocksds
+      - name: Build Rocket Video Player for DS/DSi
+        shell: bash
+        run: |
+          source /opt/wonderful/bin/wf-env -a
+          chmod +x scripts/build-dsi-player.sh
+          ./scripts/build-dsi-player.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RocketVideoPlayer-NDS
+          path: dist/RocketVideoPlayer.nds

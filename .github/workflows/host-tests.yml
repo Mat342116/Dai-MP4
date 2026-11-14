@@ -1,0 +1,15 @@
+name: Host tests
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  avi-parser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile parser tests
+        run: cc -std=c99 -Wall -Wextra -Werror -Isource source/avi.c tests/test_avi.c -o test-avi
+      - name: Run parser tests
+        run: ./test-avi

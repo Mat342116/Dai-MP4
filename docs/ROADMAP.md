@@ -1,20 +1,29 @@
 # Development roadmap
 
-## Phase 1 — DSi player
-- [x] Create initial devkitPro/libnds project structure.
-- [ ] Validate SD-card access and directory navigation on hardware.
-- [ ] Replace text mock-up with touch-friendly graphical controls.
-- [x] Research candidate playback profile: indexed AVI + Xvid, 256x192, 10 fps target. (Not yet implemented.)
-- [ ] Review decoder source and all dependency licenses before integration.
-- [ ] Integrate an Xvid/AVI decoder feasible on DSi CPU/RAM.
-- [ ] Render decoded frames on the upper screen.
-- [ ] Add PLAY/STOP state handling and error messages.
-- [ ] Test on emulator and physical DSi/DSi XL.
+## DSi playback engine
+- [x] Select established Rocket Video Player as the playback engine.
+- [x] Pin the MIT-licensed upstream source as a Git submodule and preserve its identity/license.
+- [x] Add a BlocksDS build script and GitHub Actions artifact workflow.
+- [ ] Confirm the CI build succeeds and inspect the generated NDS artifact.
+- [ ] Test launch, SD browsing, video and audio on a physical DSi/DSi XL.
+- [ ] Decide whether to maintain the upstream player as a separately attributed application or develop a branded fork with asset/license review.
 
-See [DECODER_RESEARCH.md](DECODER_RESEARCH.md) for the candidate format, reference implementation and licensing cautions.
+## macOS Big Sur Intel converter
+- [x] Create native Cocoa x86_64 app shell and build script.
+- [x] Implement an RVID v5 writer for uncompressed RGB565 video and planar 16-bit PCM audio.
+- [x] Scale/pad input video to 256×192, 15 fps; convert audio to stereo 32 kHz.
+- [ ] Confirm macOS CI compilation and packaging.
+- [ ] Generate a sample file and validate it with Rocket Video Player in an emulator.
+- [ ] Test audio/video sync and playback on a physical DSi.
+- [ ] Add cancellation, progress percentage, and optional SD-card export.
 
-## Video format constraints
-MP4 is a container. Files can contain many codecs and profiles. The DSi has limited CPU and memory; arbitrary MP4 decoding and on-device transcoding may be impractical. Do not promise playback until a real decoder and supported profile are benchmarked on hardware.
+## Legacy AVI prototype
+- [x] Create devkitPro/libnds project structure.
+- [x] Add preliminary AVI metadata validation.
+- [x] Harden RIFF chunk bounds and select the first actual video stream even when audio appears first.
+- [x] Add host-side parser regression tests and GitHub Actions.
+- [ ] Validate parser and interface on hardware.
 
-## Phase 2 — Mac converter
-After the player format is validated, create a separate macOS 11 Big Sur Intel (x86_64) app. It will transcode common source files to the exact tested player format and optionally copy results to an SD card.
+## Format constraints
+
+The selected player uses `.rvid`. The converter currently writes uncompressed 16-bit RGB565 frames at 15 fps and separate left/right PCM audio streams at 32 kHz, based on the public version-5 header and reader implementation in Rocket Video Player. This profile creates large files and still requires sample-file and hardware validation. The separate Vid2RVID repository declares no license; its source is not copied or redistributed.

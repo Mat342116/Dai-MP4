@@ -1,0 +1,3 @@
+[submodule "vendor/RocketVideoPlayer"]
+	path = vendor/RocketVideoPlayer
+	url = https://github.com/RocketRobz/RocketVideoPlayer.git
