@@ -12,14 +12,26 @@ if [[ ! -f "$INPUT" ]]; then
   exit 1
 fi
 
-if ! command -v ffmpeg >/dev/null 2>&1; then
-  echo "FFmpeg non trovato. Se usi Homebrew: brew install ffmpeg" >&2
+for tool in ffmpeg ffprobe; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "$tool non trovato. Esegui prima: ./macos/install-deps.sh" >&2
+    exit 1
+  fi
+done
+
+ENCODERS="$(ffmpeg -hide_banner -encoders 2>/dev/null)"
+if ! printf "%s\n" "$ENCODERS" | grep -q 'libmp3lame'; then
+  echo "La build FFmpeg non include libmp3lame. Reinstalla FFmpeg con Homebrew." >&2
   exit 1
 fi
-
-if ! command -v ffprobe >/dev/null 2>&1; then
-  echo "ffprobe non trovato. Reinstalla FFmpeg (Homebrew: brew install ffmpeg)." >&2
-  exit 1
+if printf "%s\n" "$ENCODERS" | grep -q 'libxvid'; then
+  VIDEO_ENCODER="libxvid"
+else
+  if ! printf "%s\n" "$ENCODERS" | grep -Eq '[[:space:]]mpeg4[[:space:]]'; then
+    echo "Nessun encoder MPEG-4 Part 2 compatibile trovato." >&2
+    exit 1
+  fi
+  VIDEO_ENCODER="mpeg4"
 fi
 
 if [[ $# -eq 2 ]]; then
@@ -31,16 +43,26 @@ else
   OUTPUT="$DIR/$NAME-dsi-test.avi"
 fi
 
-echo "Informazioni sul file sorgente:"
-ffprobe -v error -show_entries format=duration:stream=codec_type,codec_name,width,height -of default=noprint_wrappers=1 "$INPUT" || true
+if [[ "$INPUT" -ef "$OUTPUT" ]]; then
+  echo "Sorgente e destinazione non possono essere lo stesso file." >&2
+  exit 1
+fi
 
-echo "Creo AVI sperimentale 256x192, 10 fps, Xvid/MPEG-4 Part 2 e MP3..."
+echo "Sorgente:"
+ffprobe -v error -show_entries format=duration:stream=codec_type,codec_name,width,height -of default=noprint_wrappers=1 "$INPUT"
+
+echo "Encoder video scelto: $VIDEO_ENCODER"
+echo "Conversione in AVI 256x192, 10 fps, MPEG-4 Part 2/XVID, MP3 32 kHz..."
 ffmpeg -hide_banner -y -i "$INPUT" \
   -map 0:v:0 -map '0:a:0?' \
   -vf "scale=256:192:force_original_aspect_ratio=decrease,pad=256:192:(ow-iw)/2:(oh-ih)/2,setsar=1" \
-  -r 10 -c:v mpeg4 -vtag XVID -q:v 5 -pix_fmt yuv420p \
+  -r 10 -c:v "$VIDEO_ENCODER" -vtag XVID -q:v 5 -pix_fmt yuv420p \
   -c:a libmp3lame -ar 32000 -ac 2 -b:a 96k \
   -f avi "$OUTPUT"
 
+echo
+echo "Verifica del file generato:"
+ffprobe -v error -show_entries format=format_name,duration:stream=codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of default=noprint_wrappers=1 "$OUTPUT"
+echo
 echo "Creato: $OUTPUT"
-echo "Nota: è un profilo di prova, non una garanzia di riproduzione su DSi."
+echo "ATTENZIONE: questo AVI segue il profilo sperimentale, ma il decoder Dai-MP4 non è ancora implementato."
