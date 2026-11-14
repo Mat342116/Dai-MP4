@@ -17,3 +17,6 @@ Install devkitPro with devkitARM, libnds and libfat, then run `make`. Intended o
 
 ## Current status
 Dual-screen UI/input and SD file-browser foundation are planned. Video decoding/rendering and audio playback are not implemented yet.
+## Current AVI validation prototype
+
+The PLAY touch area now probes the selected root-level AVI before reporting its status. The metadata check looks for an AVI RIFF container, an `idx1` index, a first video stream, an Xvid-family FourCC, and a 256-pixel-wide frame no taller than 192 pixels. It does **not** decode or play the video, and it does not yet validate frame rate, audio codec, or every AVI variant. A successful check currently means only that the file passes these preliminary checks.
