@@ -22,10 +22,8 @@ static bool playRequested = false;
 static bool is_video_file(const char *name) {
     const char *dot = strrchr(name, '.');
     if (!dot) return false;
-    return strcasecmp(dot, ".mp4") == 0 ||
-           strcasecmp(dot, ".avi") == 0 ||
-           strcasecmp(dot, ".fv") == 0 ||
-           strcasecmp(dot, ".rvid") == 0;
+    /* First playback target: indexed AVI containing Xvid video. */
+    return strcasecmp(dot, ".avi") == 0;
 }
 
 static void scan_sd_root(void) {
