@@ -10,4 +10,4 @@ The actual video playback engine is included as a pinned Git submodule:
 
 This is deliberately kept as a separately attributed upstream application. Dai-MP4 does not rebrand the upstream UI or claim its code as original. Build it with `scripts/build-dsi-player.sh` after cloning with submodules.
 
-The companion Vid2RVID repository currently has no declared repository license. Do not copy or redistribute its source until its copyright holder grants permission. The macOS converter must target .rvid through a separately licensed implementation or an explicitly authorized converter.
+The macOS converter now contains an independent RVID v5 writer based on the public format layout and reader behavior in the MIT-licensed player. The companion Vid2RVID repository currently has no declared repository license; its source is not copied or redistributed.
