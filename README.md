@@ -37,3 +37,7 @@ GitHub Actions runs the same host test suite for pushes and pull requests.
 - The planned macOS Big Sur Intel converter is a later phase and must target a format proven to work on hardware.
 
 See [decoder research](docs/DECODER_RESEARCH.md) and the [roadmap](docs/ROADMAP.md).
+
+## macOS converter
+
+A separate Intel macOS Big Sur converter app is under [`macOS-Converter/`](macOS-Converter/README.md). It produces an Xvid AVI candidate; it does not replace the still-missing DSi decoder.
