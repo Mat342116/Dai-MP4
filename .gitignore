@@ -1,0 +1,5 @@
+build/
+*.nds
+*.elf
+*.map
+.DS_Store
