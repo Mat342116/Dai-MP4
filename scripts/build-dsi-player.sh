@@ -9,6 +9,8 @@ fi
 : "${BLOCKSDS:=/opt/blocksds/core}"
 export BLOCKSDS
 make -C "$PLAYER/nds" clean
+# The upstream repository tracks this bundled Linux helper without its executable bit.
+chmod +x "$PLAYER/nds/make_cia"
 make -C "$PLAYER/nds" -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 mkdir -p "$ROOT/dist"
 cp "$PLAYER/nds/RocketVideoPlayer.nds" "$ROOT/dist/RocketVideoPlayer.nds"
