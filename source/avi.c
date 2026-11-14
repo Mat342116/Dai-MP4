@@ -109,7 +109,10 @@ AviProbeResult avi_probe(const char *path,char *msg,size_t cap) {
     if(!index) { if(msg&&cap) snprintf(msg,cap,"AVI senza indice idx1 valido"); return AVI_PROBE_NO_INDEX; }
     if(!codec_ok(video.handler,video.compression)) { if(msg&&cap) snprintf(msg,cap,"Codec video non supportato"); return AVI_PROBE_UNSUPPORTED_VIDEO; }
     if(video.width!=256U||!video.height||video.height>192U) {
-        if(msg&&cap) snprintf(msg,cap,"Serve video largo 256 e alto massimo 192"); return AVI_PROBE_BAD_DIMENSIONS;
+        if (msg && cap) {
+            snprintf(msg, cap, "Serve video largo 256 e alto massimo 192");
+        }
+        return AVI_PROBE_BAD_DIMENSIONS;
     }
     if(msg&&cap) snprintf(msg,cap,"AVI compatibile: %lux%lu (solo metadati)",(unsigned long)video.width,(unsigned long)video.height);
     return AVI_PROBE_OK;
