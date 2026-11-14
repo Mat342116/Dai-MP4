@@ -33,8 +33,6 @@ static void scan_sd_root(void) {
     struct dirent *entry;
 
     videoCount = 0;
-    if (selectedFile >= MAX_FILES) selectedFile = -1;
-    firstVisible = selectedFile >= VISIBLE_ROWS ? selectedFile - VISIBLE_ROWS + 1 : 0;
 
     dir = opendir("fat:/");
     if (!dir) return;
@@ -48,6 +46,10 @@ static void scan_sd_root(void) {
         videoCount++;
     }
     closedir(dir);
+
+    if (selectedFile >= videoCount)
+        selectedFile = videoCount > 0 ? videoCount - 1 : -1;
+    firstVisible = selectedFile >= VISIBLE_ROWS ? selectedFile - VISIBLE_ROWS + 1 : 0;
 }
 
 static void draw_top_screen(void) {
